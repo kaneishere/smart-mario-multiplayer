@@ -10,6 +10,7 @@
   },
   "rules": {
     "quotes": ["error", "double"],
-    "camelcase": "off"
+    "camelcase": "off",
+    "no-plusplus": "off"
   }
 }
