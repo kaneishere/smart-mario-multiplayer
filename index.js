@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-syntax */
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const io = require("socket.io").listen(PORT);
 
 console.log(`listening at port ${PORT}`);
