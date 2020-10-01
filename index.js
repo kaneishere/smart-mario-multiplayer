@@ -1,79 +1,167 @@
-/* eslint-disable no-restricted-syntax */
-const PORT = process.env.PORT || 3000;
-const io = require("socket.io").listen(PORT);
+var app = require('express')();
+var server = require('http').Server(app);
+var io = require('socket.io')(server);
 
-console.log(`listening at port ${PORT}`);
+server.listen(3000);
 
-const clients = {};
-const rooms = {};
-let playersConnected = 0;
+// global variables for the Server
+var rooms = [];
+var playerSpawnPoints = [];
 
-const createRoom = (roomId, capacity, owner) => {
-  rooms[roomId] = { fullCapacity: capacity, capacity, owner };
-};
+app.get('/', function(req, res) {
+  res.send('hey you got back get "/"');
+});
 
-io.on("connection", (socket) => {
-  console.log("new player joined");
-  console.log(`number of players ${++playersConnected}`);
+io.on('connection', function(socket) {
 
-  socket.on("join room", (data) => {
-    const { username, isRoomOwner, roomId, capacity } = data;
-    clients[username] = { username, isRoomOwner, roomId };
+  var currentPlayer = {};
+  currentPlayer.name = 'unknown';
 
-    if (!(roomId in rooms)) {
-      createRoom(roomId, capacity, username);
-    }
-    console.log(`roomId: ${roomId}`);
-    if (rooms[roomId].capacity === 0) {
-      console.log("can't join room");
-      socket.emit("unable to join room: Room full");
-      return;
-    }
-
-    socket.join(roomId);
-    io.to(roomId).emit("new player", data);
-
-    rooms[roomId].capacity--;
-
-    if (isRoomOwner) socket.emit(`create room in database`);
-    else {
-      socket.emit("update room capacity in database", {
-        newCapacity: rooms[roomId].capacity,
+  socket.on('play', function(data) {
+    console.log(currentPlayer.name+' recv: play: '+JSON.stringify(data));
+    
+    if (rooms.length == 0) {
+      playerSpawnPoints = [];
+      data.playerSpawnPoints.forEach(function(_playerSpawnPoint) {
+        var playerSpawnPoint = {
+          position: _playerSpawnPoint.position
+        };
+        playerSpawnPoints.push(playerSpawnPoint);
       });
     }
-    console.log(rooms);
-    console.log(clients);
-    console.log(socket.rooms);
+
+    roomFound = false;
+    index = 0;
+    for (var i = 0; i<rooms.length;i++) {
+      if (rooms[i].name == data.roomName) {
+        roomFound = true;
+        index = i;
+        break;
+      }
+    }
+
+    if (!roomFound) {
+      clients = [];
+      currentPlayer = {
+        name:data.name,
+        roomName:data.roomName,
+        isOwner:data.isOwner,
+        position: playerSpawnPoints[0].position
+      };
+      clients.push(currentPlayer)
+      var currentRoom =  {
+        name:data.roomName,
+        capacity:data.capacity,
+        noOfClients:clients.length,
+        //more to be added like minigame selected
+        clients:clients
+      }
+      rooms.push(currentRoom);
+      socket.join(data.roomName);
+      
+      //To insert socket.Emit('updateRooms', rooms (without clients))
+      // under socket.On where new player joins or player leaves
+      //To also insert socket.On('getRooms') no input data
+      
+      socket.emit('updateRooms', rooms);
+
+
+      //
+      console.log(currentPlayer.name+' emit: play: '+JSON.stringify(currentPlayer));
+      socket.emit('play', currentPlayer);
+    }
+
+    else if (rooms[index].capacity <= rooms[index].clients.length) {
+      console.log("Room "+data.roomName+" is full");
+    }
+
+    else {
+      currentPlayer = {
+        name:data.name,
+        roomName:data.roomName,
+        isOwner:data.isOwner,
+        position: playerSpawnPoints[rooms[index].clients.length].position
+      };
+      rooms[index].clients.push(currentPlayer);
+      rooms[index].noOfClients += 1;
+      // in your current game, tell you that you have joined
+      console.log(currentPlayer.name+' emit: play: '+JSON.stringify(currentPlayer));
+      socket.emit('play', currentPlayer);
+      // in your current game, we need to tell the other player except you
+      socket.broadcast.to(data.roomName).emit('other player connected', currentPlayer);
+    }
   });
 
-  socket.on("leave room", (data) => {
-    const { username, isRoomOwner, roomId } = data;
-    socket.leave(roomId, () => {
-      if (!(roomId in rooms)) return;
-      if (++rooms[roomId].capacity === rooms[roomId].fullCapacity) {
-        socket.emit("remove room from database");
-        delete rooms[roomId];
-      } else if (isRoomOwner) {
-        clients[username].isRoomOwner = false;
-        clients[username].roomId = -1;
-        clients[username].capacity = -1;
-        for (const client in clients) {
-          if (clients[client].roomId === roomId) {
-            rooms[roomId].owner = client;
-            io.to(roomId).emit("new owner", { client });
-            break;
+  // below function can combine with socket.on('play'); (can help me @kane)
+  socket.on('player connect', function(data) {
+    console.log(currentPlayer.name+ ' recv: player connect');
+    for (var i = 0; i<rooms.length;i++) {
+      console.log('rooms length: '+rooms.length);
+      console.log('rooms[i]'+rooms[i].name+' '+
+      rooms[i].clients+' '+rooms[i].capacity+' '+rooms[i].clients.length);
+      if (rooms[i].name == data.roomName) {
+        console.log()
+        if (rooms[i].capacity > rooms[i].clients.length) {
+          for (var j = 0;j<rooms[i].clients.length;j++) {
+            console.log('client'+j+': '+rooms[i].clients[j].name+ ' ' 
+            +rooms[i].clients[j].roomName);
+            var playerConnected = {}
+            
+            playerConnected = {
+              name:rooms[i].clients[j].name,
+              roomName:rooms[i].clients[j].roomName,
+              isOwner:rooms[i].clients[j].isOwner,
+              position:rooms[i].clients[j].position
+            };
+            console.log(playerConnected);
+            // in your current game, we need to tell u about the other player
+            socket.join(data.roomName);
+            socket.emit('other player connected', playerConnected);
+            console.log(currentPlayer.name+' emit: other player connected: '+JSON.stringify(playerConnected));
           }
         }
+        else {
+          console.log("Room "+data.roomName + " is full");
+        }
       }
-      console.log(clients);
-      console.log(rooms);
-      console.log(socket.rooms);
-    });
+    } 
   });
 
-  socket.on("player move", (data) => {
-    const { username, roomId, position } = data;
-    clients[username.position] = position;
-    io.room(roomId).emit("change position", data);
+  socket.on('player move', function(data) {
+    console.log('recv: move '+JSON.stringify(data));
+    currentPlayer.position = data.position;
+    console.log(currentPlayer.name+' recv: player move '+currentPlayer.roomName);
+    socket.broadcast.to(currentPlayer.roomName).emit('player move', currentPlayer);
   });
+
+  socket.on('disconnect', function() {
+    console.log(currentPlayer.name+' recv: disconnect '+currentPlayer.name);
+    socket.broadcast.to(currentPlayer.roomName).emit('other player disconnected', currentPlayer);
+    console.log(currentPlayer.name+' bcst: other player disconnected '+JSON.stringify(currentPlayer));
+
+    for (var i = 0; i<rooms.length;i++) {
+      if (rooms[i].name == currentPlayer.roomName) {
+        for (var j = 0;j<rooms[i].clients.length;j++) {
+          if (rooms[i].clients[j].name == currentPlayer.name) {
+            rooms[i].clients.splice(j,1);
+            rooms[i].noOfClients -= 1;
+          }
+        }
+        if (rooms[i].clients.length == 0) {
+          rooms.splice(i,1);
+        }
+        else if (currentPlayer.isOwner) {
+          rooms[i].clients[0].isOwner = true;
+          socket.broadcast.to(currentPlayer.roomName).emit('owner disconnected', rooms[i].clients[0]);
+        }
+      }
+    }
+    socket.leave(currentPlayer.roomName)
+    
+    
+
+  })
+
 });
+
+console.log('----server is running...');
