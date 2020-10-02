@@ -8,6 +8,16 @@ server.listen(3000);
 var rooms = [];
 var playerSpawnPoints = [];
 
+function create_UUID(){
+  var dt = new Date().getTime();
+  var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = (dt + Math.random()*16)%16 | 0;
+      dt = Math.floor(dt/16);
+      return (c=='x' ? r :(r&0x3|0x8)).toString(16);
+  });
+  return uuid;
+}
+
 app.get('/', function(req, res) {
   res.send('hey you got back get "/"');
 });
@@ -33,7 +43,7 @@ io.on('connection', function(socket) {
     roomFound = false;
     index = 0;
     for (var i = 0; i<rooms.length;i++) {
-      if (rooms[i].name == data.roomName) {
+      if (rooms[i].roomID == data.roomID) {
         roomFound = true;
         index = i;
         break;
@@ -44,41 +54,37 @@ io.on('connection', function(socket) {
       clients = [];
       currentPlayer = {
         name:data.name,
-        roomName:data.roomName,
+        roomID:create_UUID(),
         isOwner:data.isOwner,
         position: playerSpawnPoints[0].position
       };
       clients.push(currentPlayer)
       var currentRoom =  {
-        name:data.roomName,
-        capacity:data.capacity,
+        roomID:currentPlayer.roomID,
+        roomName:data.roomName,
+        roomCapacity:data.capacity,
+        roomOwner:data.name,
         noOfClients:clients.length,
+        minigameSelected:data.minigameSelected,
+        difficultySelected:data.difficultySelected,
         //more to be added like minigame selected
         clients:clients
       }
       rooms.push(currentRoom);
-      socket.join(data.roomName);
-      
-      //To insert socket.Emit('updateRooms', rooms (without clients))
-      // under socket.On where new player joins or player leaves
-      //To also insert socket.On('getRooms') no input data
-      
-      socket.emit('updateRooms', rooms);
-
-
-      //
+      socket.join(currentPlayer.roomID);
       console.log(currentPlayer.name+' emit: play: '+JSON.stringify(currentPlayer));
       socket.emit('play', currentPlayer);
     }
 
-    else if (rooms[index].capacity <= rooms[index].clients.length) {
+    else if (rooms[index].roomCapacity <= rooms[index].clients.length) {
       console.log("Room "+data.roomName+" is full");
+      socket.emit('room is full', data);
     }
 
     else {
       currentPlayer = {
         name:data.name,
-        roomName:data.roomName,
+        roomID:data.roomID,
         isOwner:data.isOwner,
         position: playerSpawnPoints[rooms[index].clients.length].position
       };
@@ -88,7 +94,7 @@ io.on('connection', function(socket) {
       console.log(currentPlayer.name+' emit: play: '+JSON.stringify(currentPlayer));
       socket.emit('play', currentPlayer);
       // in your current game, we need to tell the other player except you
-      socket.broadcast.to(data.roomName).emit('other player connected', currentPlayer);
+      socket.broadcast.to(data.roomID).emit('other player connected', currentPlayer);
     }
   });
 
@@ -96,32 +102,29 @@ io.on('connection', function(socket) {
   socket.on('player connect', function(data) {
     console.log(currentPlayer.name+ ' recv: player connect');
     for (var i = 0; i<rooms.length;i++) {
-      console.log('rooms length: '+rooms.length);
-      console.log('rooms[i]'+rooms[i].name+' '+
-      rooms[i].clients+' '+rooms[i].capacity+' '+rooms[i].clients.length);
-      if (rooms[i].name == data.roomName) {
+      if (rooms[i].roomID == data.roomID) {
         console.log()
-        if (rooms[i].capacity > rooms[i].clients.length) {
+        if (rooms[i].roomCapacity > rooms[i].clients.length) {
           for (var j = 0;j<rooms[i].clients.length;j++) {
-            console.log('client'+j+': '+rooms[i].clients[j].name+ ' ' 
-            +rooms[i].clients[j].roomName);
-            var playerConnected = {}
             
+            var playerConnected = {}
             playerConnected = {
               name:rooms[i].clients[j].name,
-              roomName:rooms[i].clients[j].roomName,
+              roomID:rooms[i].clients[j].roomID,
               isOwner:rooms[i].clients[j].isOwner,
               position:rooms[i].clients[j].position
+
             };
             console.log(playerConnected);
             // in your current game, we need to tell u about the other player
-            socket.join(data.roomName);
+            socket.join(data.roomID);
             socket.emit('other player connected', playerConnected);
             console.log(currentPlayer.name+' emit: other player connected: '+JSON.stringify(playerConnected));
           }
         }
         else {
           console.log("Room "+data.roomName + " is full");
+          socket.emit('room is full', data);
         }
       }
     } 
@@ -130,17 +133,17 @@ io.on('connection', function(socket) {
   socket.on('player move', function(data) {
     console.log('recv: move '+JSON.stringify(data));
     currentPlayer.position = data.position;
-    console.log(currentPlayer.name+' recv: player move '+currentPlayer.roomName);
-    socket.broadcast.to(currentPlayer.roomName).emit('player move', currentPlayer);
+    console.log(currentPlayer.name+' recv: player move '+currentPlayer.roomID);
+    socket.broadcast.to(currentPlayer.roomID).emit('player move', currentPlayer);
   });
 
   socket.on('disconnect', function() {
     console.log(currentPlayer.name+' recv: disconnect '+currentPlayer.name);
-    socket.broadcast.to(currentPlayer.roomName).emit('other player disconnected', currentPlayer);
+    socket.broadcast.to(currentPlayer.roomID).emit('other player disconnected', currentPlayer);
     console.log(currentPlayer.name+' bcst: other player disconnected '+JSON.stringify(currentPlayer));
 
     for (var i = 0; i<rooms.length;i++) {
-      if (rooms[i].name == currentPlayer.roomName) {
+      if (rooms[i].roomID == currentPlayer.roomID) {
         for (var j = 0;j<rooms[i].clients.length;j++) {
           if (rooms[i].clients[j].name == currentPlayer.name) {
             rooms[i].clients.splice(j,1);
@@ -152,15 +155,34 @@ io.on('connection', function(socket) {
         }
         else if (currentPlayer.isOwner) {
           rooms[i].clients[0].isOwner = true;
-          socket.broadcast.to(currentPlayer.roomName).emit('owner disconnected', rooms[i].clients[0]);
+          rooms[i].roomOwner = rooms[i].clients[0].name;
+          socket.broadcast.to(currentPlayer.roomID).emit('owner disconnected', rooms[i].clients[0]);
         }
       }
     }
-    socket.leave(currentPlayer.roomName)
-    
-    
+    socket.leave(currentPlayer.roomID);
+  });
 
-  })
+  socket.on('get rooms', function() {
+    var allRooms = []
+    for (var i = 0; i<rooms.length;i++) {
+      var room = {
+        roomID:rooms[i].roomID,
+        roomName:rooms[i].roomName,
+        roomOwner:rooms[i].roomOwner,
+        noOfClients:rooms[i].noOfClients,
+        roomCapacity:rooms[i].roomCapacity,
+        minigameSelected:rooms[i].minigameSelected,
+        difficultySelected:rooms[i].difficultySelected
+      };
+      allRooms.push(room);
+    }
+    var roomsData = {
+      rooms:allRooms
+    };
+    socket.emit('get rooms', roomsData);
+
+  });
 
 });
 
