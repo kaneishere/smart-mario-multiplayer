@@ -1,12 +1,12 @@
-const app = require("express")();
-const server = require("http").Server(app);
-const io = require("socket.io")(server);
+var app = require('express')();
+var server = require('http').Server(app);
+var io = require('socket.io')(server);
 
 server.listen(3000);
 
 // global variables for the Server
-const rooms = [];
-let playerSpawnPoints = [];
+var rooms = [];
+var playerSpawnPoints = [];
 
 function create_UUID(){
   var dt = new Date().getTime();
@@ -22,18 +22,19 @@ app.get('/', function(req, res) {
   res.send('hey you got back get "/"');
 });
 
-io.on("connection", (socket) => {
-  let currentPlayer = {};
-  currentPlayer.name = "unknown";
+io.on('connection', function(socket) {
 
-  socket.on("play", (data) => {
-    console.log(`${currentPlayer.name} recv: play: ${JSON.stringify(data)}`);
+  var currentPlayer = {};
+  currentPlayer.name = 'unknown';
 
-    if (rooms.length === 0) {
+  socket.on('play', function(data) {
+    console.log(currentPlayer.name+' recv: play: '+JSON.stringify(data));
+    
+    if (rooms.length == 0) {
       playerSpawnPoints = [];
-      data.playerSpawnPoints.forEach((_playerSpawnPoint) => {
-        const playerSpawnPoint = {
-          position: _playerSpawnPoint.position,
+      data.playerSpawnPoints.forEach(function(_playerSpawnPoint) {
+        var playerSpawnPoint = {
+          position: _playerSpawnPoint.position
         };
         playerSpawnPoints.push(playerSpawnPoint);
       });
@@ -50,7 +51,7 @@ io.on("connection", (socket) => {
     }
 
     if (!roomFound) {
-      const clients = [];
+      clients = [];
       currentPlayer = {
         name:data.name,
         roomID:create_UUID(),
@@ -90,15 +91,14 @@ io.on("connection", (socket) => {
       rooms[index].clients.push(currentPlayer);
       rooms[index].noOfClients += 1;
       // in your current game, tell you that you have joined
-      console.log(
-        `${currentPlayer.name} emit: play: ${JSON.stringify(currentPlayer)}`,
-      );
-      socket.emit("play", currentPlayer);
+      console.log(currentPlayer.name+' emit: play: '+JSON.stringify(currentPlayer));
+      socket.emit('play', currentPlayer);
       // in your current game, we need to tell the other player except you
       socket.broadcast.to(data.roomID).emit('other player connected', currentPlayer);
     }
   });
 
+  // below function can combine with socket.on('play'); (can help me @kane)
   socket.on('player connect', function(data) {
     console.log(currentPlayer.name+ ' recv: player connect');
     for (var i = 0; i<rooms.length;i++) {
@@ -106,7 +106,7 @@ io.on("connection", (socket) => {
         console.log()
         if (rooms[i].roomCapacity > rooms[i].clients.length) {
           for (var j = 0;j<rooms[i].clients.length;j++) {
-
+            
             var playerConnected = {}
             playerConnected = {
               name:rooms[i].clients[j].name,
@@ -127,11 +127,11 @@ io.on("connection", (socket) => {
           socket.emit('room is full', data);
         }
       }
-    }
+    } 
   });
 
-  socket.on("player move", (data) => {
-    console.log(`recv: move ${JSON.stringify(data)}`);
+  socket.on('player move', function(data) {
+    console.log('recv: move '+JSON.stringify(data));
     currentPlayer.position = data.position;
     console.log(currentPlayer.name+' recv: player move '+currentPlayer.roomID);
     socket.broadcast.to(currentPlayer.roomID).emit('player move', currentPlayer);
@@ -150,9 +150,10 @@ io.on("connection", (socket) => {
             rooms[i].noOfClients -= 1;
           }
         }
-        if (rooms[i].clients.length === 0) {
-          rooms.splice(i, 1);
-        } else if (currentPlayer.isOwner) {
+        if (rooms[i].clients.length == 0) {
+          rooms.splice(i,1);
+        }
+        else if (currentPlayer.isOwner) {
           rooms[i].clients[0].isOwner = true;
           rooms[i].roomOwner = rooms[i].clients[0].name;
           socket.broadcast.to(currentPlayer.roomID).emit('owner disconnected', rooms[i].clients[0]);
@@ -185,4 +186,4 @@ io.on("connection", (socket) => {
 
 });
 
-console.log("----server is running...");
+console.log('----server is running...');
