@@ -130,6 +130,63 @@ io.on('connection', function(socket) {
     } 
   });
 
+  socket.on('minigame start', function(data) {
+    console.log('recv: minigame start '+JSON.stringify(data));
+    socket.broadcast.to(currentPlayer.roomID).emit('minigame start', data);
+  });
+  
+  socket.on('minigame connect', function(data) {
+    console.log(currentPlayer.name+ ' recv: minigame connect');
+    for (var i = 0; i<rooms.length;i++) {
+      if (rooms[i].roomID == data.roomID) {
+        console.log()
+        for (var j = 0;j<rooms[i].clients.length;j++) {
+          if (rooms[i].clients[j].name != data.name) {
+            
+            var playerConnected = {}
+            playerConnected = {
+              name:rooms[i].clients[j].name,
+              roomID:rooms[i].clients[j].roomID,
+              isOwner:rooms[i].clients[j].isOwner,
+              position:rooms[i].clients[j].position
+
+            };
+            console.log(playerConnected);
+            // in your current game, we need to tell u about the other player
+            socket.emit('other player connected minigame', playerConnected);
+            console.log(currentPlayer.name+' emit: other player connected minigame: '+JSON.stringify(playerConnected));
+          }
+        }
+      }
+    } 
+  });
+
+  socket.on('end turn', function(data) {
+    console.log(currentPlayer.name+ ' recv: end turn');
+    for (var i = 0; i<rooms.length;i++) {
+      if (rooms[i].roomID == data.roomID) {
+        console.log()
+        for (var j = 0;j<rooms[i].clients.length;j++) {
+          if (rooms[i].clients[j].name == data.name) {
+            var index = 0;
+            if (j < clients.length - 1) { index = j+1; }
+            var playerConnected = {}
+            playerConnected = {
+              name:rooms[i].clients[index].name,
+              roomID:rooms[i].clients[index].roomID,
+              isOwner:rooms[i].clients[index].isOwner,
+              position:rooms[i].clients[index].position
+
+            };
+            console.log(playerConnected);
+          }
+        }
+      }
+    }
+    socket.broadcast.to(currentPlayer.roomID).emit('next player', playerConnected);
+    console.log(currentPlayer.name+' emit: next player: '+JSON.stringify(playerConnected));
+  });
+
   socket.on('player move', function(data) {
     console.log('recv: move '+JSON.stringify(data));
     currentPlayer.position = data.position;
@@ -137,11 +194,11 @@ io.on('connection', function(socket) {
     socket.broadcast.to(currentPlayer.roomID).emit('player move', currentPlayer);
   });
 
-  socket.on('disconnect', function() {
+  socket.on('disconnect', function(reason) {
     console.log(currentPlayer.name+' recv: disconnect '+currentPlayer.name);
     socket.broadcast.to(currentPlayer.roomID).emit('other player disconnected', currentPlayer);
     console.log(currentPlayer.name+' bcst: other player disconnected '+JSON.stringify(currentPlayer));
-
+    console.log("reason: " + reason);
     for (var i = 0; i<rooms.length;i++) {
       if (rooms[i].roomID == currentPlayer.roomID) {
         for (var j = 0;j<rooms[i].clients.length;j++) {
