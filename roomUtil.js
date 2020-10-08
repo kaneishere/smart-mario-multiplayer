@@ -61,6 +61,9 @@ module.exports = (socket, currentPlayer, rooms) => {
           if (rooms[i].clients[j].name === currentPlayer.name) {
             rooms[i].clients.splice(j, 1);
             rooms[i].noOfClients -= 1;
+            if (rooms[i].noOfClients === 1) {
+              socket.broadcast.to(currentPlayer.roomID).emit("only player");
+            }
           }
         }
         if (rooms[i].clients.length === 0) {

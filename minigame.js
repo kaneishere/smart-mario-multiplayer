@@ -27,9 +27,7 @@ module.exports = (socket, io, rooms, currentPlayer) => {
 
   socket.on("qn result", (data) => {
     const { roomID, score } = data;
-    io.in(roomID).emit("qn result", {
-      score,
-    });
+    io.in(roomID).emit("qn result", score);
   });
 
   socket.on("next player", (data) => {
