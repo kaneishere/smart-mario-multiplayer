@@ -68,6 +68,7 @@ io.on("connection", (socket) => {
         noOfClients: clients.length,
         minigameSelected: data.minigameSelected,
         difficultySelected: data.difficultySelected,
+        inMinigame: false,
         // more to be added like minigame selected
         clients,
       };
@@ -215,10 +216,13 @@ io.on("connection", (socket) => {
   socket.on("minigame connect", (data) => {
     console.log(`${currentPlayer.name} recv: minigame connect`);
     for (let i = 0; i < rooms.length; i++) {
-      if (rooms[i].roomID === data.roomID) {
-        console.log();
+      console.log(`found roomlength${rooms.length}`);
+      console.log(`${rooms[i].roomID } ${ data.roomID}`);
+      if (rooms[i].roomID === currentPlayer.roomID) {
+        rooms[i].inMinigame = true;
+        console.log("found roomID");
         for (let j = 0; j < rooms[i].clients.length; j++) {
-          if (rooms[i].clients[j].name !== data.name) {
+          if (rooms[i].clients[j].name !== currentPlayer.name) {
             let playerConnected = {};
             playerConnected = {
               name: rooms[i].clients[j].name,
@@ -244,10 +248,10 @@ io.on("connection", (socket) => {
     let playerConnected = {};
     console.log(`${currentPlayer.name} recv: end turn`);
     for (let i = 0; i < rooms.length; i++) {
-      if (rooms[i].roomID === data.roomID) {
+      if (rooms[i].roomID === currentPlayer.roomID) {
         console.log();
         for (let j = 0; j < rooms[i].clients.length; j++) {
-          if (rooms[i].clients[j].name === data.name) {
+          if (rooms[i].clients[j].name === currentPlayer.name) {
             let index = 0;
             if (j < rooms[i].clients.length - 1) {
               index = j + 1;
@@ -321,16 +325,18 @@ io.on("connection", (socket) => {
   socket.on("get rooms", () => {
     const allRooms = [];
     for (let i = 0; i < rooms.length; i++) {
-      const room = {
-        roomID: rooms[i].roomID,
-        roomName: rooms[i].roomName,
-        roomOwner: rooms[i].roomOwner,
-        noOfClients: rooms[i].noOfClients,
-        roomCapacity: rooms[i].roomCapacity,
-        minigameSelected: rooms[i].minigameSelected,
-        difficultySelected: rooms[i].difficultySelected,
-      };
-      allRooms.push(room);
+      if (!rooms[i].inMinigame) {
+        const room = {
+          roomID: rooms[i].roomID,
+          roomName: rooms[i].roomName,
+          roomOwner: rooms[i].roomOwner,
+          noOfClients: rooms[i].noOfClients,
+          roomCapacity: rooms[i].roomCapacity,
+          minigameSelected: rooms[i].minigameSelected,
+          difficultySelected: rooms[i].difficultySelected,
+        };
+        allRooms.push(room);
+      }
     }
     const roomsData = {
       rooms: allRooms,
