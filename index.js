@@ -1,3 +1,5 @@
+const { Console } = require("console");
+
 const app = require("express")();
 const server = require("http").Server(app);
 const io = require("socket.io")(server);
@@ -7,6 +9,7 @@ server.listen(3000);
 // global variables for the Server
 const rooms = [];
 let playerSpawnPoints = [];
+let messageLog ={};
 
 function create_UUID() {
   let dt = new Date().getTime();
@@ -57,6 +60,7 @@ io.on("connection", (socket) => {
         name: data.name,
         roomID: create_UUID(),
         isOwner: data.isOwner,
+        currentTurn: false,
         position: playerSpawnPoints[0].position,
       };
       clients.push(currentPlayer);
@@ -116,36 +120,33 @@ io.on("connection", (socket) => {
   });
 
   socket.on("roll dice", (data) => {
-    const {
-      roomID,
-      number,
-      username,
-    } = data;
-    io.in(roomID).emit("roll dice", {
-      number,
-      username,
-    });
+    messageLog.message = currentPlayer.name + " rolled a " + data.anyIntVariable;
+    console.log(messageLog);
+    io.in(currentPlayer.roomID).emit("update message", messageLog);
   });
 
-  socket.on("answer question", (data) => {
-    const {
-      roomID,
-      username,
-    } = data;
-    io.in(roomID).emit("answer question", username);
+  socket.on("answer question", () => {
+    messageLog.message = currentPlayer.name + " is answering a qn";
+    console.log(messageLog);
+    io.in(currentPlayer.roomID).emit("update message", messageLog);
   });
 
   socket.on("qn result", (data) => {
-    const {
-      roomID,
-      score,
-    } = data;
-    io.in(roomID).emit("qn result", {
-      score,
-    });
+    scoreChange = parseInt(data.anyIntVariable, 10);
+    if (scoreChange > 0)
+      messageLog.message = currentPlayer.name + " answered a qn correctly";
+    else
+      messageLog.message = currentPlayer.name + " answered a qn wrongly";
+    console.log(messageLog);
+    io.in(currentPlayer.roomID).emit("update message", messageLog);
+    playerScoreChange = {
+      playerName: currentPlayer.name,
+      scoreChange: scoreChange
+    };
+    socket.broadcast.to(currentPlayer.roomID).emit("score change", playerScoreChange);
   });
 
-  socket.on("next player", (data) => {
+  /*socket.on("end turn", (data) => {
     const {
       username,
       roomID,
@@ -157,6 +158,7 @@ io.on("connection", (socket) => {
           if (rooms[i].clients[j] === username) {
             const len = rooms[i].clients[j].length;
             nextPlayerName = rooms[i].clients[(j + 1) % len];
+            rooms[i].clients[(j + 1) % len].currentTurn = true;
             break;
           }
         }
@@ -164,7 +166,10 @@ io.on("connection", (socket) => {
       }
     }
     socket.broadcast.to(roomID).emit("next player", nextPlayerName);
-  });
+    messageLog.message = nextPlayerName.name + "'s turn";
+    console.log("next player" + messageLog);
+    io.in(currentPlayer.roomID).emit('update message', messageLog);
+  });*/
 
   socket.on("end game", (data) => {
     const {
@@ -173,7 +178,6 @@ io.on("connection", (socket) => {
     io.broadcast.emit(roomID).emit("end game");
   });
 
-  // below function can combine with socket.on('play'); (can help me @kane)
   socket.on("player connect", (data) => {
     console.log(`${currentPlayer.name} recv: player connect`);
     for (let i = 0; i < rooms.length; i++) {
@@ -210,10 +214,22 @@ io.on("connection", (socket) => {
 
   socket.on("minigame start", (data) => {
     console.log(`recv: minigame start ${JSON.stringify(data)}`);
+    for (let i = 0; i < rooms.length; i++) {
+      if (rooms[i].roomID === currentPlayer.roomID) {
+        for (let j = 0; j < rooms[i].clients.length; j++) {
+          if (rooms[i].clients[j].name === currentPlayer.name) {
+            rooms[i].clients[j].currentTurn = true;
+            break;
+          }
+        }
+        break;
+      }
+    }
     socket.broadcast.to(currentPlayer.roomID).emit("minigame start", data);
   });
 
   socket.on("minigame connect", (data) => {
+    let currentTurnPlayerName;
     console.log(`${currentPlayer.name} recv: minigame connect`);
     for (let i = 0; i < rooms.length; i++) {
       console.log(`found roomlength${rooms.length}`);
@@ -222,6 +238,8 @@ io.on("connection", (socket) => {
         rooms[i].inMinigame = true;
         console.log("found roomID");
         for (let j = 0; j < rooms[i].clients.length; j++) {
+          if (rooms[i].clients[j].isOwner)
+            currentTurnPlayerName = rooms[i].clients[j].name;
           if (rooms[i].clients[j].name !== currentPlayer.name) {
             let playerConnected = {};
             playerConnected = {
@@ -238,10 +256,17 @@ io.on("connection", (socket) => {
               } emit: other player connected minigame: ${
                 JSON.stringify(playerConnected)}`,
             );
+            messageLog.message = playerConnected.name + " has joined";
+            console.log(messageLog);
+            socket.emit('update message', messageLog);
           }
         }
+        break;
       }
     }
+    messageLog.message = currentTurnPlayerName + "'s turn";
+    console.log(messageLog);
+    socket.emit('update message', messageLog);
   });
 
   socket.on("end turn", (data) => {
@@ -252,17 +277,10 @@ io.on("connection", (socket) => {
         console.log();
         for (let j = 0; j < rooms[i].clients.length; j++) {
           if (rooms[i].clients[j].name === currentPlayer.name) {
-            let index = 0;
-            if (j < rooms[i].clients.length - 1) {
-              index = j + 1;
-            }
-
-            playerConnected = {
-              name: rooms[i].clients[index].name,
-              roomID: rooms[i].clients[index].roomID,
-              isOwner: rooms[i].clients[index].isOwner,
-              position: rooms[i].clients[index].position,
-            };
+            const len = rooms[i].clients.length;
+            playerConnected = rooms[i].clients[(j + 1) % len];
+            rooms[i].clients[j].currentTurn = false;
+            rooms[i].clients[(j + 1) % len].currentTurn = true;
             console.log(playerConnected);
           }
         }
@@ -276,6 +294,9 @@ io.on("connection", (socket) => {
       } emit: next player: ${
         JSON.stringify(playerConnected)}`,
     );
+    messageLog.message = playerConnected.name + "'s turn";
+    console.log(messageLog);
+    io.in(currentPlayer.roomID).emit('update message', messageLog);
   });
 
   socket.on("player move", (data) => {
@@ -304,6 +325,11 @@ io.on("connection", (socket) => {
       if (rooms[i].roomID === currentPlayer.roomID) {
         for (let j = 0; j < rooms[i].clients.length; j++) {
           if (rooms[i].clients[j].name === currentPlayer.name) {
+            if (rooms[i].clients[j].currentTurn) {
+              nextPlayerIndex = (j+1)%(rooms[i].clients.length)
+              rooms[i].clients[nextPlayerIndex].currentTurn = true;
+              socket.emit('next player', rooms[i].clients[nextPlayerIndex]);
+            }
             rooms[i].clients.splice(j, 1);
             rooms[i].noOfClients -= 1;
           }
