@@ -171,11 +171,8 @@ io.on("connection", (socket) => {
     io.in(currentPlayer.roomID).emit('update message', messageLog);
   });*/
 
-  socket.on("end game", (data) => {
-    const {
-      roomID,
-    } = data;
-    io.broadcast.emit(roomID).emit("end game");
+  socket.on("end game", () => {
+    socket.broadcast.to(currentPlayer.roomID).emit("end game");
   });
 
   socket.on("player connect", (data) => {
@@ -310,6 +307,9 @@ io.on("connection", (socket) => {
       .emit("player move", currentPlayer);
   });
 
+  //TODO returning to lobby before closing the application cause disconnect to occur twice resulting
+  // in for loop rooms[i].clients to be undefined as the first disconnect has removed the room entirely
+  // can be fixed by following 'reason' (if-else loop) 
   socket.on("disconnect", (reason) => {
     console.log(`${currentPlayer.name} recv: disconnect ${currentPlayer.name}`);
     socket.broadcast
@@ -323,17 +323,7 @@ io.on("connection", (socket) => {
     console.log(`reason: ${reason}`);
     for (let i = 0; i < rooms.length; i++) {
       if (rooms[i].roomID === currentPlayer.roomID) {
-        for (let j = 0; j < rooms[i].clients.length; j++) {
-          if (rooms[i].clients[j].name === currentPlayer.name) {
-            if (rooms[i].clients[j].currentTurn) {
-              nextPlayerIndex = (j+1)%(rooms[i].clients.length)
-              rooms[i].clients[nextPlayerIndex].currentTurn = true;
-              socket.emit('next player', rooms[i].clients[nextPlayerIndex]);
-            }
-            rooms[i].clients.splice(j, 1);
-            rooms[i].noOfClients -= 1;
-          }
-        }
+        // check room is empty or that the owner of the room is disconnected
         if (rooms[i].clients.length === 0) {
           rooms.splice(i, 1);
         } else if (currentPlayer.isOwner) {
@@ -343,6 +333,33 @@ io.on("connection", (socket) => {
             .to(currentPlayer.roomID)
             .emit("owner disconnected", rooms[i].clients[0]);
         }
+
+        for (let j = 0; j < rooms[i].clients.length; j++) {
+          if (rooms[i].clients[j].name === currentPlayer.name) {
+            // if current turn in minigame is the player that is disconnected
+            // assign current turn to next player
+            if (rooms[i].clients[j].currentTurn) {
+              nextPlayerIndex = (j+1)%(rooms[i].clients.length)
+              rooms[i].clients[nextPlayerIndex].currentTurn = true;
+              socket.emit('next player', rooms[i].clients[nextPlayerIndex]);
+            }
+            // remove player disconnected from clients array in the room
+            rooms[i].clients.splice(j, 1);
+            rooms[i].noOfClients -= 1;
+
+
+          }
+        }
+        // if room is in Minigame session, update message log and remove player that disconnects
+        if (rooms[i].inMinigame) {
+          messageLog.message = currentPlayer.name + " has disconnected"
+          socket.broadcast.to(currentPlayer.roomID).emit("update message", messageLog);
+          socket.broadcast.to(currentPlayer.roomID).emit("player left minigame", currentPlayer);
+          // if there is only one client in a minigame, end the game and bring the player back to lobby
+          if (rooms[i].clients.length === 1) {
+            socket.broadcast.to(currentPlayer.roomID).emit("one player left");
+          }
+        }
       }
     }
     socket.leave(currentPlayer.roomID);
@@ -351,6 +368,7 @@ io.on("connection", (socket) => {
   socket.on("get rooms", () => {
     const allRooms = [];
     for (let i = 0; i < rooms.length; i++) {
+      // if clients are in a minigame, do not include it as a room that is available to join
       if (!rooms[i].inMinigame) {
         const room = {
           roomID: rooms[i].roomID,
