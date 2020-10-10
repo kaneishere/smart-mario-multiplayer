@@ -32,7 +32,6 @@ io.on("connection", (socket) => {
 
   socket.on("play", (data) => {
     console.log(`${currentPlayer.name} recv: play: ${JSON.stringify(data)}`);
-
     if (rooms.length === 0) {
       playerSpawnPoints = [];
       data.playerSpawnPoints.forEach((_playerSpawnPoint) => {
@@ -90,6 +89,7 @@ io.on("connection", (socket) => {
         name: data.name,
         roomID: data.roomID,
         isOwner: data.isOwner,
+        currentTurn: false,
         position: playerSpawnPoints[rooms[index].clients.length].position,
       };
       rooms[index].clients.push(currentPlayer);
