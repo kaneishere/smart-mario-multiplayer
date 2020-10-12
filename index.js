@@ -9,7 +9,7 @@ server.listen(3000);
 // global variables for the Server
 const rooms = [];
 let playerSpawnPoints = [];
-let messageLog ={};
+let messageLog = {};
 
 function create_UUID() {
   let dt = new Date().getTime();
@@ -23,7 +23,7 @@ function create_UUID() {
 }
 
 app.get("/", (req, res) => {
-  res.send("hey you got back get \"/\"");
+  res.send('hey you got back get "/"');
 });
 
 io.on("connection", (socket) => {
@@ -120,7 +120,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("roll dice", (data) => {
-    messageLog.message = currentPlayer.name + " rolled a " + data.anyIntVariable;
+    messageLog.message =
+      currentPlayer.name + " rolled a " + data.anyIntVariable;
     console.log(messageLog);
     io.in(currentPlayer.roomID).emit("update message", messageLog);
   });
@@ -135,15 +136,16 @@ io.on("connection", (socket) => {
     scoreChange = parseInt(data.anyIntVariable, 10);
     if (scoreChange > 0)
       messageLog.message = currentPlayer.name + " answered a qn correctly";
-    else
-      messageLog.message = currentPlayer.name + " answered a qn wrongly";
+    else messageLog.message = currentPlayer.name + " answered a qn wrongly";
     console.log(messageLog);
     io.in(currentPlayer.roomID).emit("update message", messageLog);
     playerScoreChange = {
       playerName: currentPlayer.name,
-      scoreChange: scoreChange
+      scoreChange: scoreChange,
     };
-    socket.broadcast.to(currentPlayer.roomID).emit("score change", playerScoreChange);
+    socket.broadcast
+      .to(currentPlayer.roomID)
+      .emit("score change", playerScoreChange);
   });
 
   /*socket.on("end turn", (data) => {
@@ -230,7 +232,7 @@ io.on("connection", (socket) => {
     console.log(`${currentPlayer.name} recv: minigame connect`);
     for (let i = 0; i < rooms.length; i++) {
       console.log(`found roomlength${rooms.length}`);
-      console.log(`${rooms[i].roomID } ${ data.roomID}`);
+      console.log(`${rooms[i].roomID} ${data.roomID}`);
       if (rooms[i].roomID === currentPlayer.roomID) {
         rooms[i].inMinigame = true;
         console.log("found roomID");
@@ -249,13 +251,15 @@ io.on("connection", (socket) => {
             // in your current game, we need to tell u about the other player
             socket.emit("other player connected minigame", playerConnected);
             console.log(
-              `${currentPlayer.name
-              } emit: other player connected minigame: ${
-                JSON.stringify(playerConnected)}`,
+              `${
+                currentPlayer.name
+              } emit: other player connected minigame: ${JSON.stringify(
+                playerConnected,
+              )}`,
             );
             messageLog.message = playerConnected.name + " has joined";
             console.log(messageLog);
-            socket.emit('update message', messageLog);
+            socket.emit("update message", messageLog);
           }
         }
         break;
@@ -263,7 +267,7 @@ io.on("connection", (socket) => {
     }
     messageLog.message = currentTurnPlayerName + "'s turn";
     console.log(messageLog);
-    socket.emit('update message', messageLog);
+    socket.emit("update message", messageLog);
   });
 
   socket.on("end turn", (data) => {
@@ -287,13 +291,13 @@ io.on("connection", (socket) => {
       .to(currentPlayer.roomID)
       .emit("next player", playerConnected);
     console.log(
-      `${currentPlayer.name
-      } emit: next player: ${
-        JSON.stringify(playerConnected)}`,
+      `${currentPlayer.name} emit: next player: ${JSON.stringify(
+        playerConnected,
+      )}`,
     );
     messageLog.message = playerConnected.name + "'s turn";
     console.log(messageLog);
-    io.in(currentPlayer.roomID).emit('update message', messageLog);
+    io.in(currentPlayer.roomID).emit("update message", messageLog);
   });
 
   socket.on("player move", (data) => {
@@ -309,16 +313,16 @@ io.on("connection", (socket) => {
 
   //TODO returning to lobby before closing the application cause disconnect to occur twice resulting
   // in for loop rooms[i].clients to be undefined as the first disconnect has removed the room entirely
-  // can be fixed by following 'reason' (if-else loop) 
+  // can be fixed by following 'reason' (if-else loop)
   socket.on("disconnect", (reason) => {
     console.log(`${currentPlayer.name} recv: disconnect ${currentPlayer.name}`);
     socket.broadcast
       .to(currentPlayer.roomID)
       .emit("other player disconnected", currentPlayer);
     console.log(
-      `${currentPlayer.name
-      } bcst: other player disconnected ${
-        JSON.stringify(currentPlayer)}`,
+      `${currentPlayer.name} bcst: other player disconnected ${JSON.stringify(
+        currentPlayer,
+      )}`,
     );
     console.log(`reason: ${reason}`);
     for (let i = 0; i < rooms.length; i++) {
@@ -339,22 +343,24 @@ io.on("connection", (socket) => {
             // if current turn in minigame is the player that is disconnected
             // assign current turn to next player
             if (rooms[i].clients[j].currentTurn) {
-              nextPlayerIndex = (j+1)%(rooms[i].clients.length)
+              nextPlayerIndex = (j + 1) % rooms[i].clients.length;
               rooms[i].clients[nextPlayerIndex].currentTurn = true;
-              socket.emit('next player', rooms[i].clients[nextPlayerIndex]);
+              socket.emit("next player", rooms[i].clients[nextPlayerIndex]);
             }
             // remove player disconnected from clients array in the room
             rooms[i].clients.splice(j, 1);
             rooms[i].noOfClients -= 1;
-
-
           }
         }
         // if room is in Minigame session, update message log and remove player that disconnects
         if (rooms[i].inMinigame) {
-          messageLog.message = currentPlayer.name + " has disconnected"
-          socket.broadcast.to(currentPlayer.roomID).emit("update message", messageLog);
-          socket.broadcast.to(currentPlayer.roomID).emit("player left minigame", currentPlayer);
+          messageLog.message = currentPlayer.name + " has disconnected";
+          socket.broadcast
+            .to(currentPlayer.roomID)
+            .emit("update message", messageLog);
+          socket.broadcast
+            .to(currentPlayer.roomID)
+            .emit("player left minigame", currentPlayer);
           // if there is only one client in a minigame, end the game and bring the player back to lobby
           if (rooms[i].clients.length === 1) {
             socket.broadcast.to(currentPlayer.roomID).emit("one player left");
