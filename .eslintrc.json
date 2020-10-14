@@ -12,6 +12,7 @@
     "quotes": ["error", "double"],
     "camelcase": "off",
     "no-plusplus": "off",
-    "linebreak-style": "off"
+    "linebreak-style": "off",
+    "no-undef": "warn"
   }
 }
