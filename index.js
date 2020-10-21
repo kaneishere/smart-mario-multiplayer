@@ -120,25 +120,46 @@ io.on("connection", (socket) => {
   });
 
   socket.on("roll dice", (data) => {
+    messageLog.message = "You rolled a " + data.anyIntVariable;
+    console.log(messageLog);
+    socket.emit("update message", messageLog);
+
     messageLog.message =
       currentPlayer.name + " rolled a " + data.anyIntVariable;
     console.log(messageLog);
-    io.in(currentPlayer.roomID).emit("update message", messageLog);
+    socket.broadcast
+      .to(currentPlayer.roomID)
+      .emit("update message", messageLog);
   });
 
   socket.on("answer question", () => {
+    messageLog.message = "You are answering a qn";
+    console.log(messageLog);
+    socket.emit("update message", messageLog);
+
     messageLog.message = currentPlayer.name + " is answering a qn";
     console.log(messageLog);
-    io.in(currentPlayer.roomID).emit("update message", messageLog);
+    socket.broadcast
+      .to(currentPlayer.roomID)
+      .emit("update message", messageLog);
   });
 
   socket.on("qn result", (data) => {
     scoreChange = parseInt(data.anyIntVariable, 10);
+
+    if (scoreChange > 0) messageLog.message = "You answered a qn correctly";
+    else messageLog.message = "You answered a qn wrongly";
+    console.log(messageLog);
+    socket.emit("update message", messageLog);
+
     if (scoreChange > 0)
       messageLog.message = currentPlayer.name + " answered a qn correctly";
     else messageLog.message = currentPlayer.name + " answered a qn wrongly";
     console.log(messageLog);
-    io.in(currentPlayer.roomID).emit("update message", messageLog);
+    socket.broadcast
+      .to(currentPlayer.roomID)
+      .emit("update message", messageLog);
+
     playerScoreChange = {
       playerName: currentPlayer.name,
       scoreChange: scoreChange,
@@ -147,31 +168,6 @@ io.on("connection", (socket) => {
       .to(currentPlayer.roomID)
       .emit("score change", playerScoreChange);
   });
-
-  /*socket.on("end turn", (data) => {
-    const {
-      username,
-      roomID,
-    } = data;
-    let nextPlayerName = "";
-    for (let i = 0; i < rooms.length; i++) {
-      if (rooms[i].roomID === roomID) {
-        for (let j = 0; j < rooms[j].clients.length; j++) {
-          if (rooms[i].clients[j] === username) {
-            const len = rooms[i].clients[j].length;
-            nextPlayerName = rooms[i].clients[(j + 1) % len];
-            rooms[i].clients[(j + 1) % len].currentTurn = true;
-            break;
-          }
-        }
-        break;
-      }
-    }
-    socket.broadcast.to(roomID).emit("next player", nextPlayerName);
-    messageLog.message = nextPlayerName.name + "'s turn";
-    console.log("next player" + messageLog);
-    io.in(currentPlayer.roomID).emit('update message', messageLog);
-  });*/
 
   socket.on("end game", () => {
     socket.broadcast.to(currentPlayer.roomID).emit("end game");
@@ -328,15 +324,6 @@ io.on("connection", (socket) => {
     for (let i = 0; i < rooms.length; i++) {
       if (rooms[i].roomID === currentPlayer.roomID) {
         // check room is empty or that the owner of the room is disconnected
-        if (rooms[i].clients.length === 0) {
-          rooms.splice(i, 1);
-        } else if (currentPlayer.isOwner) {
-          rooms[i].clients[0].isOwner = true;
-          rooms[i].roomOwner = rooms[i].clients[0].name;
-          socket.broadcast
-            .to(currentPlayer.roomID)
-            .emit("owner disconnected", rooms[i].clients[0]);
-        }
 
         for (let j = 0; j < rooms[i].clients.length; j++) {
           if (rooms[i].clients[j].name === currentPlayer.name) {
@@ -361,10 +348,21 @@ io.on("connection", (socket) => {
           socket.broadcast
             .to(currentPlayer.roomID)
             .emit("player left minigame", currentPlayer);
-          // if there is only one client in a minigame, end the game and bring the player back to lobby
+          // if there is only one client in a minigame, end the
+          // game and bring the player back to lobby
           if (rooms[i].clients.length === 1) {
             socket.broadcast.to(currentPlayer.roomID).emit("one player left");
           }
+        }
+
+        if (rooms[i].clients.length === 0) {
+          rooms.splice(i, 1);
+        } else if (currentPlayer.isOwner) {
+          rooms[i].clients[0].isOwner = true;
+          rooms[i].roomOwner = rooms[i].clients[0].name;
+          socket.broadcast
+            .to(currentPlayer.roomID)
+            .emit("owner disconnected", rooms[i].clients[0]);
         }
       }
     }
