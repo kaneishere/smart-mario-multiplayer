@@ -68,6 +68,7 @@ io.on("connection", (socket) => {
         roomID: currentPlayer.roomID,
         roomName: data.roomName,
         roomCapacity: data.capacity,
+        roomPassword: data.roomPassword,
         roomOwner: data.name,
         noOfClients: clients.length,
         minigameSelected: data.minigameSelected,
@@ -84,6 +85,9 @@ io.on("connection", (socket) => {
         `${currentPlayer.name} emit: play: ${JSON.stringify(currentPlayer)}`,
       );
       socket.emit("play", currentPlayer);
+    } else if (rooms[index].roomPassword !== data.roomPassword) {
+      console.log(`Password for Room ${data.roomName} is incorrect`);
+      socket.emit("wrong room password", data);
     } else if (rooms[index].roomCapacity <= rooms[index].clients.length) {
       console.log(`Room ${data.roomName} is full`);
       socket.emit("room is full", data);
@@ -197,6 +201,9 @@ io.on("connection", (socket) => {
               )}`,
             );
           }
+        } else if (rooms[i].roomPassword !== data.roomPassword) {
+          console.log(`Password for Room ${data.roomName} is incorrect`);
+          socket.emit("wrong room password", data);
         } else {
           console.log(`Room ${data.roomName} is full`);
           socket.emit("room is full", data);
@@ -365,6 +372,7 @@ io.on("connection", (socket) => {
           roomOwner: rooms[i].roomOwner,
           noOfClients: rooms[i].noOfClients,
           roomCapacity: rooms[i].roomCapacity,
+          roomPassword: rooms[i].roomPassword,
           minigameSelected: rooms[i].minigameSelected,
           difficultySelected: rooms[i].difficultySelected,
           levelSelected: rooms[i].levelSelected,
