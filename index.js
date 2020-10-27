@@ -60,6 +60,7 @@ io.on("connection", (socket) => {
         roomID: create_UUID(),
         isOwner: data.isOwner,
         currentTurn: false,
+        customChar: data.customChar,
         position: playerSpawnPoints[0].position,
       };
       clients.push(currentPlayer);
@@ -67,10 +68,13 @@ io.on("connection", (socket) => {
         roomID: currentPlayer.roomID,
         roomName: data.roomName,
         roomCapacity: data.capacity,
+        roomPassword: data.roomPassword,
         roomOwner: data.name,
         noOfClients: clients.length,
         minigameSelected: data.minigameSelected,
         difficultySelected: data.difficultySelected,
+        levelSelected: data.levelSelected,
+        levelComplete: false,
         inMinigame: false,
         // more to be added like minigame selected
         clients,
@@ -81,6 +85,9 @@ io.on("connection", (socket) => {
         `${currentPlayer.name} emit: play: ${JSON.stringify(currentPlayer)}`,
       );
       socket.emit("play", currentPlayer);
+    } else if (rooms[index].roomPassword !== data.roomPassword) {
+      console.log(`Password for Room ${data.roomName} is incorrect`);
+      socket.emit("wrong room password", data);
     } else if (rooms[index].roomCapacity <= rooms[index].clients.length) {
       console.log(`Room ${data.roomName} is full`);
       socket.emit("room is full", data);
@@ -90,6 +97,7 @@ io.on("connection", (socket) => {
         roomID: data.roomID,
         isOwner: data.isOwner,
         currentTurn: false,
+        customChar: data.customChar,
         position: playerSpawnPoints[rooms[index].clients.length].position,
       };
       rooms[index].clients.push(currentPlayer);
@@ -170,6 +178,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("end game", () => {
+    for (let i = 0; i < rooms.length; i++) {
+      if (rooms[i].roomID === currentPlayer.roomID) {
+        rooms[i].levelComplete = true;
+      }
+    }
     socket.broadcast.to(currentPlayer.roomID).emit("end game");
   });
 
@@ -181,12 +194,7 @@ io.on("connection", (socket) => {
         if (rooms[i].roomCapacity > rooms[i].clients.length) {
           for (let j = 0; j < rooms[i].clients.length; j++) {
             let playerConnected = {};
-            playerConnected = {
-              name: rooms[i].clients[j].name,
-              roomID: rooms[i].clients[j].roomID,
-              isOwner: rooms[i].clients[j].isOwner,
-              position: rooms[i].clients[j].position,
-            };
+            playerConnected = rooms[i].clients[j];
             console.log(playerConnected);
             // in your current game, we need to tell u about the other player
             socket.join(data.roomID);
@@ -199,6 +207,9 @@ io.on("connection", (socket) => {
               )}`,
             );
           }
+        } else if (rooms[i].roomPassword !== data.roomPassword) {
+          console.log(`Password for Room ${data.roomName} is incorrect`);
+          socket.emit("wrong room password", data);
         } else {
           console.log(`Room ${data.roomName} is full`);
           socket.emit("room is full", data);
@@ -237,12 +248,7 @@ io.on("connection", (socket) => {
             currentTurnPlayerName = rooms[i].clients[j].name;
           if (rooms[i].clients[j].name !== currentPlayer.name) {
             let playerConnected = {};
-            playerConnected = {
-              name: rooms[i].clients[j].name,
-              roomID: rooms[i].clients[j].roomID,
-              isOwner: rooms[i].clients[j].isOwner,
-              position: rooms[i].clients[j].position,
-            };
+            playerConnected = rooms[i].clients[j];
             console.log(playerConnected);
             // in your current game, we need to tell u about the other player
             socket.emit("other player connected minigame", playerConnected);
@@ -323,8 +329,6 @@ io.on("connection", (socket) => {
     console.log(`reason: ${reason}`);
     for (let i = 0; i < rooms.length; i++) {
       if (rooms[i].roomID === currentPlayer.roomID) {
-        // check room is empty or that the owner of the room is disconnected
-
         for (let j = 0; j < rooms[i].clients.length; j++) {
           if (rooms[i].clients[j].name === currentPlayer.name) {
             // if current turn in minigame is the player that is disconnected
@@ -341,20 +345,16 @@ io.on("connection", (socket) => {
         }
         // if room is in Minigame session, update message log and remove player that disconnects
         if (rooms[i].inMinigame) {
-          messageLog.message = currentPlayer.name + " has disconnected";
-          socket.broadcast
-            .to(currentPlayer.roomID)
-            .emit("update message", messageLog);
-          socket.broadcast
-            .to(currentPlayer.roomID)
-            .emit("player left minigame", currentPlayer);
-          // if there is only one client in a minigame, end the
-          // game and bring the player back to lobby
-          if (rooms[i].clients.length === 1) {
+          messageLog.message = currentPlayer.name + " has disconnected"
+          socket.broadcast.to(currentPlayer.roomID).emit("update message", messageLog);
+          socket.broadcast.to(currentPlayer.roomID).emit("player left minigame", currentPlayer);
+          // if only one client in a minigame, end the game and bring the player back to lobby
+          if (rooms[i].clients.length === 1 && !rooms[i].levelComplete) {
             socket.broadcast.to(currentPlayer.roomID).emit("one player left");
           }
         }
 
+        // check room is empty or that the owner of the room is disconnected
         if (rooms[i].clients.length === 0) {
           rooms.splice(i, 1);
         } else if (currentPlayer.isOwner) {
@@ -380,8 +380,10 @@ io.on("connection", (socket) => {
           roomOwner: rooms[i].roomOwner,
           noOfClients: rooms[i].noOfClients,
           roomCapacity: rooms[i].roomCapacity,
+          roomPassword: rooms[i].roomPassword,
           minigameSelected: rooms[i].minigameSelected,
           difficultySelected: rooms[i].difficultySelected,
+          levelSelected: rooms[i].levelSelected,
         };
         allRooms.push(room);
       }
