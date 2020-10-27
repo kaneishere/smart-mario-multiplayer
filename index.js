@@ -171,6 +171,25 @@ io.on("connection", (socket) => {
     socket.broadcast.to(currentPlayer.roomID).emit("score change", playerScoreChange);
   });
 
+  socket.on("matched card", (data) => {
+    messageLog.message = "You just matched a card!";
+    console.log(messageLog);
+    socket.emit("update message", messageLog);
+
+    messageLog.message = currentPlayer.name + " just matched a card!";
+    console.log(messageLog);
+    socket.broadcast.to(currentPlayer.roomID).emit("update message", messageLog);
+
+    messageLog.message = "You have " + data.anyIntVariable + " pairs left";
+    console.log(messageLog);
+    socket.emit("update message", messageLog);
+
+    messageLog.message = currentPlayer.name + " has " + data.anyIntVariable + " pairs left";
+    console.log(messageLog);
+    socket.broadcast.to(currentPlayer.roomID).emit("update message", messageLog);
+
+  })
+
   socket.on("end game", () => {
     for (let i = 0; i < rooms.length; i++) {
       if (rooms[i].roomID === currentPlayer.roomID) {
@@ -178,6 +197,15 @@ io.on("connection", (socket) => {
       }
     }
     socket.broadcast.to(currentPlayer.roomID).emit("end game");
+  });
+  
+  socket.on("end game2", () => {
+    for (let i = 0; i < rooms.length; i++) {
+      if (rooms[i].roomID === currentPlayer.roomID) {
+        rooms[i].levelComplete = true;
+      }
+    }
+    socket.broadcast.to(currentPlayer.roomID).emit("end game2");
   });
 
   socket.on("player connect", (data) => {
@@ -228,14 +256,31 @@ io.on("connection", (socket) => {
     socket.broadcast.to(currentPlayer.roomID).emit("minigame start", data);
   });
 
+
+  socket.on("minigame2 enter", () => {
+    console.log(`recv: minigame2 start `);
+    socket.broadcast.to(currentPlayer.roomID).emit("minigame2 enter");
+
+    messageLog.message = "Waiting for owner";    //!!
+    console.log(messageLog);
+    io.in(currentPlayer.roomID).emit("update message", messageLog);
+  });
+
+  socket.on("minigame2 start", () => {
+    console.log(`recv: minigame2 start `);
+    socket.broadcast.to(currentPlayer.roomID).emit("minigame2 start");
+  })
+
   socket.on("minigame connect", (data) => {
     let currentTurnPlayerName;
+    let minigameSelected;
     console.log(`${currentPlayer.name} recv: minigame connect`);
     for (let i = 0; i < rooms.length; i++) {
       console.log(`found roomlength${rooms.length}`);
       console.log(`${rooms[i].roomID } ${ data.roomID}`);
       if (rooms[i].roomID === currentPlayer.roomID) {
         rooms[i].inMinigame = true;
+        minigameSelected = rooms[i].minigameSelected;
         console.log("found roomID");
         for (let j = 0; j < rooms[i].clients.length; j++) {
           if (rooms[i].clients[j].isOwner)
@@ -259,9 +304,11 @@ io.on("connection", (socket) => {
         break;
       }
     }
-    messageLog.message = currentTurnPlayerName + "'s turn";
-    console.log(messageLog);
-    socket.emit('update message', messageLog);
+    if (minigameSelected == "World 2 Stranded" || minigameSelected == "World 1 Stranded") {
+      messageLog.message = currentTurnPlayerName + "'s turn";
+      console.log(messageLog);
+      socket.emit("update message", messageLog);
+    }
   });
 
   socket.on("end turn", (data) => {
