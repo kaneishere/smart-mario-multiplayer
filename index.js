@@ -1,16 +1,35 @@
 const { Console } = require("console");
 
 const app = require("express")();
+/**
+ * Server object
+ */
 const server = require("http").Server(app);
+/**
+ * Web socket object
+ */
 const io = require("socket.io")(server);
+const PORT = process.env.PORT || 3000;
 
-server.listen(3000);
+server.listen(PORT);
 
 // global variables for the Server
+/**
+ * Array containing properties of each room
+ */
 const rooms = [];
+/**
+ * Array containing spawn points for each player
+ */
 let playerSpawnPoints = [];
+/**
+ *  Contains most recent event and data related to the event
+ */
 let messageLog = {};
 
+/**
+ *  Generates a Unique User ID for a user
+ */
 function create_UUID() {
   let dt = new Date().getTime();
   const uuid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -26,10 +45,33 @@ app.get("/", (req, res) => {
   res.send('hey you got back get "/"');
 });
 
+/**
+ * handles player connection event
+ * @function onConnection
+ *
+ */
 io.on("connection", (socket) => {
+  /**
+   * player object stored in closure
+   * with player attributes
+   * @name currentPlayer
+   */
   let currentPlayer = {};
   currentPlayer.name = "unknown";
 
+  /**
+   * handles "play" event
+   * @function onPlay
+   * @param {Object} data - JSON object containing information about the player
+   * @param {Array} data.playerSpawnPoints - An array of floats containing the player's location on the xyz plane.
+   * @param {string} data.roomName - name of the room
+   * @param {string} data.customChar indicate character selected
+   * @param {string} data.name - name of the player
+   * @param {string} data.roomPassword - password selected for the room
+   * @param {string} data.minigameSelected - minigame selected
+   * @param {string} data.difficultySelected - difficulty selected
+   * @param {string} data.levelSelected - level selected
+   */
   socket.on("play", (data) => {
     console.log(`${currentPlayer.name} recv: play: ${JSON.stringify(data)}`);
     if (rooms.length === 0) {
@@ -114,6 +156,13 @@ io.on("connection", (socket) => {
     }
   });
 
+  /**
+   * Logic for initializing a minigame upon receiving a
+   * "minigame initialization" event
+   * @function minigame_initialization
+   * @param {Object} data contains paramters of Player
+   * @param {string}
+   */
   socket.on("minigame initialization", (data) => {
     let clients = [];
     for (let i = 0; i < rooms.length; i++) {
@@ -184,17 +233,21 @@ io.on("connection", (socket) => {
 
     messageLog.message = currentPlayer.name + " just matched a card!";
     console.log(messageLog);
-    socket.broadcast.to(currentPlayer.roomID).emit("update message", messageLog);
+    socket.broadcast
+      .to(currentPlayer.roomID)
+      .emit("update message", messageLog);
 
     messageLog.message = "You have " + data.anyIntVariable + " pairs left";
     console.log(messageLog);
     socket.emit("update message", messageLog);
 
-    messageLog.message = currentPlayer.name + " has " + data.anyIntVariable + " pairs left";
+    messageLog.message =
+      currentPlayer.name + " has " + data.anyIntVariable + " pairs left";
     console.log(messageLog);
-    socket.broadcast.to(currentPlayer.roomID).emit("update message", messageLog);
-
-  })
+    socket.broadcast
+      .to(currentPlayer.roomID)
+      .emit("update message", messageLog);
+  });
 
   socket.on("end game", () => {
     for (let i = 0; i < rooms.length; i++) {
@@ -204,7 +257,7 @@ io.on("connection", (socket) => {
     }
     socket.broadcast.to(currentPlayer.roomID).emit("end game");
   });
-  
+
   socket.on("end game2", () => {
     for (let i = 0; i < rooms.length; i++) {
       if (rooms[i].roomID === currentPlayer.roomID) {
@@ -262,12 +315,11 @@ io.on("connection", (socket) => {
     socket.broadcast.to(currentPlayer.roomID).emit("minigame start", data);
   });
 
-
   socket.on("minigame2 enter", () => {
     console.log(`recv: minigame2 start `);
     socket.broadcast.to(currentPlayer.roomID).emit("minigame2 enter");
 
-    messageLog.message = "Waiting for owner";    //!!
+    messageLog.message = "Waiting for owner"; //!!
     console.log(messageLog);
     io.in(currentPlayer.roomID).emit("update message", messageLog);
   });
@@ -275,7 +327,7 @@ io.on("connection", (socket) => {
   socket.on("minigame2 start", () => {
     console.log(`recv: minigame2 start `);
     socket.broadcast.to(currentPlayer.roomID).emit("minigame2 start");
-  })
+  });
 
   socket.on("minigame connect", (data) => {
     let currentTurnPlayerName;
@@ -312,7 +364,10 @@ io.on("connection", (socket) => {
         break;
       }
     }
-    if (minigameSelected == "World 2 Stranded" || minigameSelected == "World 1 Stranded") {
+    if (
+      minigameSelected == "World 2 Stranded" ||
+      minigameSelected == "World 1 Stranded"
+    ) {
       messageLog.message = currentTurnPlayerName + "'s turn";
       console.log(messageLog);
       socket.emit("update message", messageLog);
@@ -392,9 +447,13 @@ io.on("connection", (socket) => {
         }
         // if room is in Minigame session, update message log and remove player that disconnects
         if (rooms[i].inMinigame) {
-          messageLog.message = currentPlayer.name + " has disconnected"
-          socket.broadcast.to(currentPlayer.roomID).emit("update message", messageLog);
-          socket.broadcast.to(currentPlayer.roomID).emit("player left minigame", currentPlayer);
+          messageLog.message = currentPlayer.name + " has disconnected";
+          socket.broadcast
+            .to(currentPlayer.roomID)
+            .emit("update message", messageLog);
+          socket.broadcast
+            .to(currentPlayer.roomID)
+            .emit("player left minigame", currentPlayer);
           // if only one client in a minigame, end the game and bring the player back to lobby
           if (rooms[i].clients.length === 1 && !rooms[i].levelComplete) {
             socket.broadcast.to(currentPlayer.roomID).emit("one player left");
