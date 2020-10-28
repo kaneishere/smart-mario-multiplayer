@@ -1,5 +1,10 @@
 const { Console } = require("console");
 
+const debug = process.argv.slice(2)[0] === "debug";
+if (!debug) {
+  console.log = () => {};
+}
+
 const app = require("express")();
 /**
  * Server object
