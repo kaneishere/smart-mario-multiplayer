@@ -159,9 +159,8 @@ io.on("connection", (socket) => {
   /**
    * Logic for initializing a minigame upon receiving a
    * "minigame initialization" event
-   * @function minigame_initialization
-   * @param {Object} data contains paramters of Player
-   * @param {string}
+   * @function onMiniGameInitialization
+   * @param {Object} data contains paramters of Player. Same as data for onPlay
    */
   socket.on("minigame initialization", (data) => {
     let clients = [];
@@ -176,6 +175,13 @@ io.on("connection", (socket) => {
     });
   });
 
+  /**
+   * Logic for rolling a dice and broadcasting dice roll
+   * results to other players upon receiving "roll dice"
+   * event
+   * @function onRollDice
+   * @param {Object} data - same as data for onPlay
+   */
   socket.on("roll dice", (data) => {
     messageLog.message = "You rolled a " + data.anyIntVariable;
     console.log(messageLog);
