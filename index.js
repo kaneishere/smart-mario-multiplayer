@@ -9,6 +9,10 @@ const server = require("http").Server(app);
  * Web socket object
  */
 const io = require("socket.io")(server);
+
+/**
+ * Specifies which port to listen to
+ */
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT);
@@ -25,7 +29,7 @@ let playerSpawnPoints = [];
 /**
  *  Contains most recent event and data related to the event
  */
-let messageLog = {};
+const messageLog = {};
 
 /**
  *  Generates a Unique User ID for a user
@@ -46,13 +50,13 @@ app.get("/", (req, res) => {
 });
 
 /**
- * handles player connection event
+ * Handles player connection event
  * @function onConnection
  *
  */
 io.on("connection", (socket) => {
   /**
-   * player object stored in closure
+   * Player object stored in closure
    * with player attributes
    * @name currentPlayer
    */
@@ -60,7 +64,7 @@ io.on("connection", (socket) => {
   currentPlayer.name = "unknown";
 
   /**
-   * handles "play" event
+   * Handles "play" event
    * @function onPlay
    * @param {Object} data - JSON object containing information about the player
    * @param {Array} data.playerSpawnPoints - An array of floats containing the player's location on the xyz plane.
@@ -183,32 +187,41 @@ io.on("connection", (socket) => {
    * @param {Object} data - same as data for onPlay
    */
   socket.on("roll dice", (data) => {
-    messageLog.message = "You rolled a " + data.anyIntVariable;
+    messageLog.message = `You rolled a ${data.anyIntVariable}`;
     console.log(messageLog);
     socket.emit("update message", messageLog);
 
-    messageLog.message =
-      currentPlayer.name + " rolled a " + data.anyIntVariable;
+    messageLog.message = `${currentPlayer.name} rolled a ${data.anyIntVariable}`;
     console.log(messageLog);
     socket.broadcast
       .to(currentPlayer.roomID)
       .emit("update message", messageLog);
   });
+
+  /**
+   * Handles the event when a player is answering a question
+   * @function onAnswerQuestion
+   */
 
   socket.on("answer question", () => {
     messageLog.message = "You are answering a qn";
     console.log(messageLog);
     socket.emit("update message", messageLog);
 
-    messageLog.message = currentPlayer.name + " is answering a qn";
+    messageLog.message = `${currentPlayer.name} is answering a qn`;
     console.log(messageLog);
     socket.broadcast
       .to(currentPlayer.roomID)
       .emit("update message", messageLog);
   });
 
+  /**
+   * Handles the event in which question is answered
+   * @function onQnResult
+   * @param {Object} data - same as onPlay
+   */
   socket.on("qn result", (data) => {
-    scoreChange = parseInt(data.anyIntVariable, 10);
+    const scoreChange = parseInt(data.anyIntVariable, 10);
 
     if (scoreChange > 0) messageLog.message = "You answered a qn correctly";
     else messageLog.message = "You answered a qn wrongly";
@@ -216,8 +229,8 @@ io.on("connection", (socket) => {
     socket.emit("update message", messageLog);
 
     if (scoreChange > 0)
-      messageLog.message = currentPlayer.name + " answered a qn correctly";
-    else messageLog.message = currentPlayer.name + " answered a qn wrongly";
+      messageLog.message = `${currentPlayer.name} answered a qn correctly`;
+    else messageLog.message = `${currentPlayer.name} answered a qn wrongly`;
     console.log(messageLog);
     socket.broadcast
       .to(currentPlayer.roomID)
@@ -225,36 +238,45 @@ io.on("connection", (socket) => {
 
     playerScoreChange = {
       playerName: currentPlayer.name,
-      scoreChange: scoreChange,
+      scoreChange,
     };
     socket.broadcast
       .to(currentPlayer.roomID)
       .emit("score change", playerScoreChange);
   });
 
+  /**
+   * Handles "matched card" event
+   * @function onMatchedCard
+   * @param {Object} data - same as onPlay
+   */
   socket.on("matched card", (data) => {
     messageLog.message = "You just matched a card!";
     console.log(messageLog);
     socket.emit("update message", messageLog);
 
-    messageLog.message = currentPlayer.name + " just matched a card!";
+    messageLog.message = `${currentPlayer.name} just matched a card!`;
     console.log(messageLog);
     socket.broadcast
       .to(currentPlayer.roomID)
       .emit("update message", messageLog);
 
-    messageLog.message = "You have " + data.anyIntVariable + " pairs left";
+    messageLog.message = `You have ${data.anyIntVariable} pairs left`;
     console.log(messageLog);
     socket.emit("update message", messageLog);
 
-    messageLog.message =
-      currentPlayer.name + " has " + data.anyIntVariable + " pairs left";
+    messageLog.message = `${currentPlayer.name} has ${data.anyIntVariable} pairs left`;
     console.log(messageLog);
     socket.broadcast
       .to(currentPlayer.roomID)
       .emit("update message", messageLog);
   });
 
+  /**
+   * handles logic for "end game" event
+   * @function onEndGame
+   *
+   */
   socket.on("end game", () => {
     for (let i = 0; i < rooms.length; i++) {
       if (rooms[i].roomID === currentPlayer.roomID) {
@@ -264,6 +286,10 @@ io.on("connection", (socket) => {
     socket.broadcast.to(currentPlayer.roomID).emit("end game");
   });
 
+  /**
+   * handles logic for "end game2" event
+   * @function onEndGame2
+   */
   socket.on("end game2", () => {
     for (let i = 0; i < rooms.length; i++) {
       if (rooms[i].roomID === currentPlayer.roomID) {
@@ -273,6 +299,11 @@ io.on("connection", (socket) => {
     socket.broadcast.to(currentPlayer.roomID).emit("end game2");
   });
 
+  /**
+   * handles logic for "player connect" event
+   * @function onPlayerConnect
+   * @param {Object} data - same as onPlay
+   */
   socket.on("player connect", (data) => {
     console.log(`${currentPlayer.name} recv: player connect`);
     for (let i = 0; i < rooms.length; i++) {
@@ -305,6 +336,11 @@ io.on("connection", (socket) => {
     }
   });
 
+  /**
+   * handles logic for "minigame start" event
+   * @function onMinigameStart
+   * @param {Object} data - same as onPlay
+   */
   socket.on("minigame start", (data) => {
     console.log(`recv: minigame start ${JSON.stringify(data)}`);
     for (let i = 0; i < rooms.length; i++) {
@@ -321,20 +357,34 @@ io.on("connection", (socket) => {
     socket.broadcast.to(currentPlayer.roomID).emit("minigame start", data);
   });
 
+  /**
+   * Handles logic for "minigame2 enter" event
+   * @function onMinigame2Enter
+   *
+   */
   socket.on("minigame2 enter", () => {
-    console.log(`recv: minigame2 start `);
+    console.log("recv: minigame2 start ");
     socket.broadcast.to(currentPlayer.roomID).emit("minigame2 enter");
 
-    messageLog.message = "Waiting for owner"; //!!
+    messageLog.message = "Waiting for owner"; //! !
     console.log(messageLog);
     io.in(currentPlayer.roomID).emit("update message", messageLog);
   });
 
+  /**
+   * Handles logic for "minigame2 start" event
+   * @function onMinigame2Start
+   */
   socket.on("minigame2 start", () => {
-    console.log(`recv: minigame2 start `);
+    console.log("recv: minigame2 start ");
     socket.broadcast.to(currentPlayer.roomID).emit("minigame2 start");
   });
 
+  /**
+   * Handles logic for "minigame connect" event
+   * @function onMinigameConnect
+   * @param {Object} data - same as onPlay
+   */
   socket.on("minigame connect", (data) => {
     let currentTurnPlayerName;
     let minigameSelected;
@@ -362,7 +412,7 @@ io.on("connection", (socket) => {
                 playerConnected,
               )}`,
             );
-            messageLog.message = playerConnected.name + " has joined";
+            messageLog.message = `${playerConnected.name} has joined`;
             console.log(messageLog);
             socket.emit("update message", messageLog);
           }
@@ -370,16 +420,22 @@ io.on("connection", (socket) => {
         break;
       }
     }
+
     if (
-      minigameSelected == "World 2 Stranded" ||
-      minigameSelected == "World 1 Stranded"
+      minigameSelected === "World 2 Stranded" ||
+      minigameSelected === "World 1 Stranded"
     ) {
-      messageLog.message = currentTurnPlayerName + "'s turn";
+      messageLog.message = `${currentTurnPlayerName}'s turn`;
       console.log(messageLog);
       socket.emit("update message", messageLog);
     }
   });
 
+  /**
+   * Handles "end turn" event
+   * @function onEndTurn
+   * @param {Object} data - same as onPlay
+   */
   socket.on("end turn", (data) => {
     let playerConnected = {};
     console.log(`${currentPlayer.name} recv: end turn`);
@@ -405,11 +461,16 @@ io.on("connection", (socket) => {
         playerConnected,
       )}`,
     );
-    messageLog.message = playerConnected.name + "'s turn";
+    messageLog.message = `${playerConnected.name}'s turn`;
     console.log(messageLog);
     io.in(currentPlayer.roomID).emit("update message", messageLog);
   });
 
+  /**
+   * Handles "player move" event
+   * @function onPlayerMove
+   * @param {Object} data - same as onPlay
+   */
   socket.on("player move", (data) => {
     console.log(`recv: move ${JSON.stringify(data)}`);
     currentPlayer.position = data.position;
@@ -421,9 +482,14 @@ io.on("connection", (socket) => {
       .emit("player move", currentPlayer);
   });
 
-  //TODO returning to lobby before closing the application cause disconnect to occur twice resulting
+  // TODO returning to lobby before closing the application cause disconnect to occur twice resulting
   // in for loop rooms[i].clients to be undefined as the first disconnect has removed the room entirely
   // can be fixed by following 'reason' (if-else loop)
+  /**
+   * Handles a disconnection event and outputs the reason for disconnection
+   * @function onDisconnect
+   * @param {string} reason - reason for the disconnect
+   */
   socket.on("disconnect", (reason) => {
     console.log(`${currentPlayer.name} recv: disconnect ${currentPlayer.name}`);
     socket.broadcast
@@ -453,7 +519,7 @@ io.on("connection", (socket) => {
         }
         // if room is in Minigame session, update message log and remove player that disconnects
         if (rooms[i].inMinigame) {
-          messageLog.message = currentPlayer.name + " has disconnected";
+          messageLog.message = `${currentPlayer.name} has disconnected`;
           socket.broadcast
             .to(currentPlayer.roomID)
             .emit("update message", messageLog);
@@ -481,6 +547,11 @@ io.on("connection", (socket) => {
     socket.leave(currentPlayer.roomID);
   });
 
+  /**
+   * Handles event "get rooms"
+   * and returns rooms array
+   * @function onGetRooms
+   */
   socket.on("get rooms", () => {
     const allRooms = [];
     for (let i = 0; i < rooms.length; i++) {
