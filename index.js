@@ -69,7 +69,9 @@ io.on("connection", (socket) => {
   currentPlayer.name = "unknown";
 
   /**
-   * Handles "play" event
+   * Initializes currentPlayer object in closure.
+   * Stores spawnPoints of currentPlayer.
+   * Cerates room object with roomID and room capacity.
    * @function onPlay
    * @param {Object} data - JSON object containing information about the player
    * @param {Array} data.playerSpawnPoints - An array of floats containing the player's location on the xyz plane.
@@ -204,7 +206,7 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * Handles the event when a player is answering a question
+   * Tells other players that a player in the room is answering a question
    * @function onAnswerQuestion
    */
 
@@ -221,7 +223,7 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * Handles the event in which question is answered
+   * Tells other players in a room that a question is answered.
    * @function onQnResult
    * @param {Object} data - same as onPlay
    */
@@ -241,7 +243,7 @@ io.on("connection", (socket) => {
       .to(currentPlayer.roomID)
       .emit("update message", messageLog);
 
-    playerScoreChange = {
+    const playerScoreChange = {
       playerName: currentPlayer.name,
       scoreChange,
     };
@@ -251,7 +253,7 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * Handles "matched card" event
+   * Lets other players know that the local player has matched a card
    * @function onMatchedCard
    * @param {Object} data - same as onPlay
    */
@@ -278,7 +280,8 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * handles logic for "end game" event
+   * updates status of level in the current room and lets other players in the room
+   * know when the game has ended.
    * @function onEndGame
    *
    */
@@ -292,7 +295,7 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * handles logic for "end game2" event
+   * identical logic to onEndGame, used for the other minigame
    * @function onEndGame2
    */
   socket.on("end game2", () => {
@@ -342,7 +345,7 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * handles logic for "minigame start" event
+   * Initalizes minigame. Sets the currentTurn variable of the first player to true
    * @function onMinigameStart
    * @param {Object} data - same as onPlay
    */
@@ -363,7 +366,7 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * Handles logic for "minigame2 enter" event
+   * Broadcasts to other players in the room whenever a new player enters the room
    * @function onMinigame2Enter
    *
    */
@@ -377,7 +380,7 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * Handles logic for "minigame2 start" event
+   * Broadcasts to other players when the minigame starts
    * @function onMinigame2Start
    */
   socket.on("minigame2 start", () => {
@@ -386,7 +389,7 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * Handles logic for "minigame connect" event
+   * Handles connection event for minigame
    * @function onMinigameConnect
    * @param {Object} data - same as onPlay
    */
@@ -472,7 +475,9 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * Handles "player move" event
+   * Broadcasts currentPlayer object to other clients whenever currentPlayer
+   * moves so other clients can re-render the local player in their respective
+   * games.
    * @function onPlayerMove
    * @param {Object} data - same as onPlay
    */
@@ -553,8 +558,7 @@ io.on("connection", (socket) => {
   });
 
   /**
-   * Handles event "get rooms"
-   * and returns rooms array
+   * Utility function to get data associated with all active rooms
    * @function onGetRooms
    */
   socket.on("get rooms", () => {
