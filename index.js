@@ -251,19 +251,7 @@ io.on("connection", (socket) => {
       .to(currentPlayer.roomID)
       .emit("score change", playerScoreChange);
   });
-  socket.on("wrong card", () => {
-    const playerScores = {
-      playerName: currentPlayer.name,
-      qnsAttempted: 1,
-      cardsMatched: 0,
-    };
-    socket.broadcast
-      .to(currentPlayer.roomID)
-      .emit("wrong card", playerScores);
-    messageLog.message = `You have matched ${currentPlayer.cardsMatched} pairs and answered ${currentPlayer.qnsAttempted} questions `;
-    console.log(messageLog);
-    socket.emit("update message", messageLog);
-  });
+
   /**
    * Lets other players know that the local player has matched a card
    * @function onMatchedCard
@@ -289,34 +277,6 @@ io.on("connection", (socket) => {
     socket.broadcast
       .to(currentPlayer.roomID)
       .emit("update message", messageLog);
-
-    const playerScores = {
-      playerName: currentPlayer.name,
-      qnsAttempted: 1,
-      cardsMatched: 1,
-    };
-    socket.broadcast
-      .to(currentPlayer.roomID)
-      .emit("matched card", playerScores);
-
-    // console.log(`${currentPlayer.name} recv: correct cards`);
-
-    // for (let i = 0; i < rooms.length; i++) {
-    //   if (rooms[i].roomID === currentPlayer.roomID) {
-    //     console.log();
-    //     for (let j = 0; j < rooms[i].clients.length; j++) {
-    //       if (rooms[i].clients[j].name === currentPlayer.name) {
-    //         rooms[i].clients[j].qnsAttempted += 1;
-    //         rooms[i].clients[j].cardsMatched += 1;
-    //         console.log(`current player attempted ${currentPlayer.qnsAttempted} questions`);
-    //         console.log(`current player matched ${currentPlayer.cardsMatched} questions`);
-    //       }
-    //     }
-    //   }
-    // }
-    messageLog.message = `You have matched ${currentPlayer.cardsMatched} pairs and answered ${currentPlayer.qnsAttempted} questions `;
-    console.log(messageLog);
-    socket.emit("update message", messageLog);
   });
 
   /**
@@ -452,15 +412,7 @@ io.on("connection", (socket) => {
             playerConnected = rooms[i].clients[j];
             console.log(playerConnected);
             // in your current game, we need to tell u about the other player
-            if (
-              minigameSelected === "World 2 Stranded" ||
-              minigameSelected === "World 1 Stranded"
-            ){
-              socket.emit("other player connected minigame", playerConnected);
-            }
-            else {
-              socket.emit("other player connected minigame2", playerConnected);
-            }
+            socket.emit("other player connected minigame", playerConnected);
             console.log(
               `${
                 currentPlayer.name
