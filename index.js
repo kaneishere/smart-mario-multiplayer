@@ -260,9 +260,6 @@ io.on("connection", (socket) => {
     socket.broadcast
       .to(currentPlayer.roomID)
       .emit("wrong card", playerScores);
-    messageLog.message = `You have matched ${currentPlayer.cardsMatched} pairs and answered ${currentPlayer.qnsAttempted} questions `;
-    console.log(messageLog);
-    socket.emit("update message", messageLog);
   });
   /**
    * Lets other players know that the local player has matched a card
@@ -314,9 +311,6 @@ io.on("connection", (socket) => {
     //     }
     //   }
     // }
-    messageLog.message = `You have matched ${currentPlayer.cardsMatched} pairs and answered ${currentPlayer.qnsAttempted} questions `;
-    console.log(messageLog);
-    socket.emit("update message", messageLog);
   });
 
   /**
@@ -455,10 +449,9 @@ io.on("connection", (socket) => {
             if (
               minigameSelected === "World 2 Stranded" ||
               minigameSelected === "World 1 Stranded"
-            ){
+            ) {
               socket.emit("other player connected minigame", playerConnected);
-            }
-            else {
+            } else {
               socket.emit("other player connected minigame2", playerConnected);
             }
             console.log(
@@ -486,7 +479,31 @@ io.on("connection", (socket) => {
       socket.emit("update message", messageLog);
     }
   });
-
+  socket.on("minigame2 connect", () => {
+    for (let i = 0; i < rooms.length; i++) {
+      if (rooms[i].roomID === currentPlayer.roomID) {
+        rooms[i].inMinigame = true;
+        for (let j = 0; j < rooms[i].clients.length; j++) {
+          if (rooms[i].clients[j].name !== currentPlayer.name) {
+            let playerConnected = {};
+            playerConnected = rooms[i].clients[j];
+            // in your current game, we need to tell u about the other player
+            socket.emit("other player connected minigame2", playerConnected);
+            console.log(
+              `${
+                currentPlayer.name
+              } emit: other player connected minigame: ${JSON.stringify(
+                playerConnected,
+              )}`,
+            );
+            messageLog.message = `${playerConnected.name} has joined`;
+            console.log(messageLog);
+            socket.emit("update message", messageLog);
+          }
+        }
+      }
+    }
+  });
   /**
    * Handles "end turn" event
    * @function onEndTurn
